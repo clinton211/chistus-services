@@ -1,0 +1,57 @@
+const nodemailer = require("nodemailer");
+const Contact = require("../models/Contact");
+
+const sendEmail = async (options) => {
+  const transporter = nodemailer.createTransport({
+    service: "Gmail",
+    auth: {
+      user: process.env.EMAIL_USERNAME,
+      pass: process.env.EMAIL_PASSWORD
+    }
+  });
+
+  const mailOptions = {
+    from: `"Chistus Services" <${process.env.EMAIL_USERNAME}>`,
+    to: options.to,
+    subject: options.subject,
+    html: options.html
+  };
+
+  await transporter.sendMail(mailOptions);
+};
+
+exports.submitContactForm = async (req, res) => {
+  const { name, email, message } = req.body;
+
+  try {
+    const contact = new Contact({ name, email, message });
+    await contact.save();
+
+    // Send email to admin
+    await sendEmail({
+      to: process.env.ADMIN_EMAIL,
+      subject: "New Contact Form Submission",
+      html: `
+        <h3>New Message from Chistus Services</h3>
+        <p><strong>Name:</strong> ${name}</p>
+        <p><strong>Email:</strong> ${email}</p>
+        <p><strong>Message:</strong> ${message}</p>
+      `
+    });
+
+    // Auto-reply to sender
+    await sendEmail({
+      to: email,
+      subject: "Thank you for contacting Chistus Services",
+      html: `
+        <h3>Hi ${name},</h3>
+        <p>Thank you for reaching out to Chistus Services. We will get back to you shortly.</p>
+        <p>Best regards,<br/>Chistus Team</p>
+      `
+    });
+
+    res.status(201).json({ message: "Message sent successfully" });
+  } catch (err) {
+    res.status(500).json({ message: "Failed to send email" });
+  }
+};

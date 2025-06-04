@@ -1,0 +1,72 @@
+const Vehicle = require('../models/Vehicle');
+const cloudinary = require('../utils/cloudinary');
+
+// Get all vehicles
+exports.getAllVehicles = async (req, res) => {
+  try {
+    const vehicles = await Vehicle.find();
+    res.status(200).json(vehicles);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Add new vehicle
+exports.createVehicle = async (req, res) => {
+  const { brand, model, year, price, condition } = req.body;
+  let image = "";
+
+  // Upload image to Cloudinary
+  if (req.file) {
+    const result = await cloudinary.uploader.upload(req.file.path, {
+      folder: "chistus/vehicles"
+    });
+    image = result.secure_url;
+  }
+
+  try {
+    const newVehicle = new Vehicle({
+      brand,
+      model,
+      year,
+      price,
+      condition,
+      image,
+      status: "Available"
+    });
+
+    await newVehicle.save();
+    res.status(201).json(newVehicle);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Update vehicle status (Sold/Available)
+exports.updateVehicleStatus = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const vehicle = await Vehicle.findById(id);
+    if (!vehicle) return res.status(404).json({ message: "Vehicle not found" });
+
+    vehicle.status = vehicle.status === "Available" ? "Sold" : "Available";
+    await vehicle.save();
+
+    res.json(vehicle);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Delete vehicle
+exports.deleteVehicle = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    await Vehicle.findByIdAndDelete(id);
+    res.json({ message: "Vehicle deleted" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
